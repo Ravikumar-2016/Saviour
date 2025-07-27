@@ -702,6 +702,8 @@ const styles = StyleSheet.create({
   requestDetailCard: {
     padding: 16,
     borderRadius: 16,
+    width: 350,
+    height: 50,
     backgroundColor: "rgba(0,0,0,0.02)",
   },
   requestDetailHeader: {

@@ -34,6 +34,18 @@ import {
   getDoc,
 } from "firebase/firestore"
 import { BlurView } from "expo-blur"
+import { useNavigation } from "expo-router"
+import { useLayoutEffect } from "react"
+
+export const unstable_settings = {
+  initialRouteName: "Resources",
+}
+
+export const screenOptions = {
+  headerTitle: "Resource Center",
+  headerBackTitle: "Back",
+  headerTitleAlign: "center",
+}
 
 const { width, height } = Dimensions.get("window")
 
@@ -122,6 +134,16 @@ const UserResourcesScreen = () => {
   const colorScheme = useColorScheme() ?? "light"
   const colors = modernTheme[colorScheme]
   const currentUser = auth.currentUser
+  const navigation = useNavigation()
+
+  // Set custom header and back button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Resource Center",
+      headerBackTitle: "Back",
+      headerTitleAlign: "center",
+    })
+  }, [navigation])
 
   // States
   const [resources, setResources] = useState<Resource[]>([])
@@ -350,7 +372,6 @@ const UserResourcesScreen = () => {
   const renderResourceItem = ({ item }: { item: Resource }) => {
     const isAvailable = item.available > 0
     const stockPercentage = (item.available / item.total) * 100
-    // Only render image if base64
     let imageSource = undefined
     if (item.imageUrl && item.imageUrl.startsWith("data:image")) {
       imageSource = { uri: item.imageUrl }
@@ -497,8 +518,8 @@ const UserResourcesScreen = () => {
         backgroundColor={colors.background}
       />
 
-      {/* Modern Header */}
-      <View style={[styles.modernHeader, { backgroundColor: colors.cardBackground }]}>
+      {/* Modern Header - Remove extra marginTop/paddingTop */}
+      <View style={[styles.modernHeader, { backgroundColor: colors.cardBackground, marginTop: 0, paddingTop: 8 }]}>
         <View style={styles.headerContent}>
           <View>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Resource Center</Text>
@@ -666,6 +687,7 @@ const UserResourcesScreen = () => {
       {/* Request Submission Modal */}
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <BlurView intensity={50} style={styles.modalOverlay}>
+          <SafeAreaView>
           <Animated.View
             style={[
               styles.modernModalContent,
@@ -825,6 +847,7 @@ const UserResourcesScreen = () => {
               </>
             )}
           </Animated.View>
+          </SafeAreaView>
         </BlurView>
       </Modal>
 
@@ -836,6 +859,7 @@ const UserResourcesScreen = () => {
         onRequestClose={() => setRequestModalVisible(false)}
       >
         <BlurView intensity={50} style={styles.modalOverlay}>
+          <SafeAreaView>
           <Animated.View
             style={[
               styles.modernModalContent,
@@ -956,6 +980,7 @@ const UserResourcesScreen = () => {
               </>
             )}
           </Animated.View>
+          </SafeAreaView>
         </BlurView>
       </Modal>
 
@@ -1342,6 +1367,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     marginBottom: 24,
+    width: 350,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1424,6 +1450,8 @@ const styles = StyleSheet.create({
   requestDetailCard: {
     padding: 16,
     borderRadius: 16,
+    height: 80,
+    width: 350,
     backgroundColor: "rgba(0,0,0,0.02)",
   },
   requestDetailHeader: {

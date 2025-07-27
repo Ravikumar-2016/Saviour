@@ -20,11 +20,12 @@ import { doc, getDoc, DocumentSnapshot, DocumentData } from "firebase/firestore"
 import { auth, db } from "../../lib/firebase";
 import * as GoogleAuth from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const USER_ROLES = ["user", "employee", "admin"] as const;
 type UserRole = (typeof USER_ROLES)[number];
 
-const GOOGLE_WEB_CLIENT_ID = "1012376360740-7egjvkecijotophpbhnsvc5flbsr75vm.apps.googleusercontent.com";
+const GOOGLE_WEB_CLIENT_ID = "process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -138,17 +139,32 @@ export default function LoginScreen() {
   };
 
   const styles = StyleSheet.create({
+    safeArea: {
+      flex: 5,
+      backgroundColor: Colors[colorScheme].background,
+    },
     container: {
       flex: 1,
       justifyContent: "center",
       padding: 24,
       backgroundColor: Colors[colorScheme].background,
     },
+    logoContainer: {
+      alignItems: "center",
+      marginBottom: 100,
+      marginTop: 1,
+    },
+    logo: {
+      width: 200,
+      height: 60,
+      resizeMode: "contain",
+    },
     title: {
-      fontSize: 32,
+      fontSize: 25,
       fontWeight: "bold",
       textAlign: "center",
       marginBottom: 10,
+      marginTop: -40,
       color: Colors[colorScheme].tint,
     },
     subtitle: {
@@ -258,75 +274,86 @@ export default function LoginScreen() {
   });
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>Welcome Back!</ThemedText>
-        <ThemedText style={styles.subtitle}>Sign in to continue as</ThemedText>
-        <View style={styles.roleSelectorContainer}>
-          {USER_ROLES.map((role) => (
-            <TouchableOpacity
-              key={role}
-              style={[styles.roleButton, selectedRole === role && styles.roleButtonSelected]}
-              onPress={() => setSelectedRole(role)}
-            >
-              <ThemedText style={[styles.roleButtonText, selectedRole === role && styles.roleButtonTextSelected]}>
-                {role.charAt(0).toUpperCase() + role.slice(1)}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={Colors[colorScheme].textMuted}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={Colors[colorScheme].textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </View>
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color={Colors[colorScheme].background} />
-          ) : (
-            <ThemedText style={styles.buttonText}>
-              Login as {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
-            </ThemedText>
-          )}
-        </TouchableOpacity>
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <ThemedText style={styles.dividerText}>Or continue with</ThemedText>
-          <View style={styles.dividerLine} />
-        </View>
-        <View style={styles.socialLoginContainer}>
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={() => promptAsync()}
-            disabled={googleLoading || !request}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color={Colors[colorScheme].tint} />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        <ThemedView style={styles.container}>
+          {/* Saviour Logo */}
+          <View style={styles.logoContainer}>
+            <Image
+                source={colorScheme === 'dark' 
+                  ? require("../../assets/images/Saviour2.png") 
+                  : require("../../assets/images/Saviour.png")}
+                style={styles.logo}
+              />
+          </View>
+          <ThemedText style={styles.title}>Welcome Back!</ThemedText>
+          <ThemedText style={styles.subtitle}>Sign in to continue as</ThemedText>
+          <View style={styles.roleSelectorContainer}>
+            {USER_ROLES.map((role) => (
+              <TouchableOpacity
+                key={role}
+                style={[styles.roleButton, selectedRole === role && styles.roleButtonSelected]}
+                onPress={() => setSelectedRole(role)}
+              >
+                <ThemedText style={[styles.roleButtonText, selectedRole === role && styles.roleButtonTextSelected]}>
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor={Colors[colorScheme].textMuted}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor={Colors[colorScheme].textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+          </View>
+          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color={Colors[colorScheme].background} />
             ) : (
-              <Image source={require("../../assets/images/google-logo.png")} style={styles.socialLogo} />
+              <ThemedText style={styles.buttonText}>
+                Login as {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
+              </ThemedText>
             )}
           </TouchableOpacity>
-        </View>
-        <TouchableOpacity onPress={() => router.push("/signup")}>
-          <ThemedText style={styles.linkText}>Don't have an account? Sign Up</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-    </KeyboardAvoidingView>
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <ThemedText style={styles.dividerText}>Or continue with</ThemedText>
+            <View style={styles.dividerLine} />
+          </View>
+          <View style={styles.socialLoginContainer}>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={() => promptAsync()}
+              disabled={googleLoading || !request}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={Colors[colorScheme].tint} />
+              ) : (
+                <Image source={require("../../assets/images/google-logo.png")} style={styles.socialLogo} />
+              )}
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => router.push("/signup")}>
+            <ThemedText style={styles.linkText}>Don't have an account? Sign Up</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

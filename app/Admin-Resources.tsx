@@ -40,6 +40,17 @@ import { BlurView } from "expo-blur"
 // Function to fetch and cache resource image from Firestore
 import { getDoc } from "firebase/firestore"
 
+
+export const unstable_settings = {
+  initialRouteName: "Resources",
+}
+
+export const screenOptions = {
+  headerTitle: "Admin Resource Center",
+  headerBackTitle: "Back",
+  headerTitleAlign: "center",
+}
+
 const { width, height } = Dimensions.get("window")
 
 // Enhanced disaster-specific resource categories
@@ -1866,6 +1877,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     marginBottom: 24,
+    width: 350,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1992,6 +2004,8 @@ const styles = StyleSheet.create({
   requestDetailCard: {
     padding: 16,
     borderRadius: 16,
+    height: 100,
+    width: 350,
     backgroundColor: "rgba(0,0,0,0.02)",
   },
   requestDetailHeader: {

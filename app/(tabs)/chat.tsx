@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Text } from "react-native";
+import { StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Text, View } from "react-native";
 import ChatRoom from "../../components/Chat/ChatRoom";
 import { useColorScheme } from "../../hooks/useColorScheme";
 import { Colors } from "../../constants/Colors";
 import { useAuth } from "../../context/AuthContext";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import { useNavigation } from "expo-router";
+import { useLayoutEffect } from "react";
 
 export default function ChatScreen() {
   const colorScheme = useColorScheme() ?? "light";
@@ -13,6 +15,16 @@ export default function ChatScreen() {
   const [city, setCity] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [chatReady, setChatReady] = useState(false);
+  const navigation = useNavigation();
+
+  // Set navigation header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Chat",
+      headerBackTitle: "Back",
+      headerTitleAlign: "center",
+    });
+  }, [navigation]);
 
   useEffect(() => {
     const fetchCity = async () => {
@@ -44,22 +56,22 @@ export default function ChatScreen() {
 
   if (loading || (city && !chatReady)) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background, justifyContent: "center", alignItems: "center" }]}>
+      <View style={[styles.container, { backgroundColor: Colors[colorScheme].background, justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!city) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background, justifyContent: "center", alignItems: "center" }]}>
+      <View style={[styles.container, { backgroundColor: Colors[colorScheme].background, justifyContent: "center", alignItems: "center" }]}>
         <Text style={{ color: Colors[colorScheme].text, fontSize: 18 }}>You must set your city in your profile to access chat.</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -67,7 +79,7 @@ export default function ChatScreen() {
       >
         <ChatRoom roomId={city} />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

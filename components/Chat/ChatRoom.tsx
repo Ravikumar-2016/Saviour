@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, ActivityIndicator, StyleSheet, Text, Alert } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Text, Alert, Platform } from "react-native";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import MessageList from "./MessageList";
@@ -10,6 +10,8 @@ import { useColorScheme } from "../../hooks/useColorScheme";
 import { Colors } from "../../constants/Colors";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppUser } from "../../types/auth-context";
+import { useNavigation } from "expo-router";
+import { useLayoutEffect } from "react";
 
 export type ChatMessage = {
   id: string;
@@ -52,6 +54,16 @@ export default function ChatRoom({ roomId }: Props) {
   const [userCity, setUserCity] = useState<string | null>(null);
   const [accessAllowed, setAccessAllowed] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
+  const navigation = useNavigation();
+
+  // Set header title and back button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: `City: ${roomId} Chat`,
+      headerBackTitle: "Back",
+      headerTitleAlign: "center",
+    });
+  }, [navigation, roomId]);
 
   // Fetch user profile from Firestore
   useEffect(() => {
@@ -209,11 +221,13 @@ export default function ChatRoom({ roomId }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ChatHeader
-        title={`City: ${roomId} Chat`}
-        avatar={messages[0]?.userAvatar || messages[0]?.photoUrl}
-        subtitle="Local Users"
-      />
+      <View style={styles.headerWrapper}>
+        <ChatHeader
+          title={`City: ${roomId} Chat`}
+          avatar={messages[0]?.userAvatar || messages[0]?.photoUrl}
+          subtitle="Local Users"
+        />
+      </View>
       <View style={styles.listContainer}>
         {loading ? (
           <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
@@ -236,6 +250,11 @@ export default function ChatRoom({ roomId }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors["dark"].background },
+  headerWrapper: {
+    marginTop: Platform.OS === "ios" ? 0 : 0, // Remove extra space
+    paddingTop: 0,
+    backgroundColor: Colors["dark"].background,
+  },
   listContainer: { flex: 1, justifyContent: "flex-end" },
 });

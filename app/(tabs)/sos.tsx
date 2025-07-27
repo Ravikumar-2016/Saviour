@@ -381,7 +381,7 @@ export default function SOSScreen() {
       <ThemedView style={s.container}>
         {sosSent ? (
           <View style={s.confirmationContainer}>
-            <IconSymbol name="checkmark.circle.fill" size={80} color={Colors.light.tint} />
+            <IconSymbol name="checkmark.circle.fill" size={60} color={Colors.light.tint} />
             <ThemedText style={s.confirmationTitle}>SOS Sent!</ThemedText>
             <ThemedText style={s.confirmationMessage}>
               Help is on the way. Your location and emergency details have been dispatched.
@@ -699,10 +699,10 @@ const styles = (colorScheme: "light" | "dark" = "light") =>
       backgroundColor: Colors[colorScheme].background,
     },
     confirmationTitle: {
-      fontSize: 28,
+      fontSize: 25,
       fontWeight: "bold",
-      marginTop: 20,
-      marginBottom: 10,
+      marginTop: 25,
+      marginBottom: 25,
       textAlign: "center",
       color: "#7C3AED", // Purple color
     },

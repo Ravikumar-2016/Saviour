@@ -16,8 +16,10 @@ import { MaterialIcons } from "@expo/vector-icons"
 import { useColorScheme } from "@/hooks/useColorScheme"
 import { db, auth } from "@/lib/firebase"
 import { collection, onSnapshot, query, orderBy, where, doc, updateDoc, serverTimestamp } from "firebase/firestore"
+import { useNavigation } from "expo-router"
+import { useLayoutEffect } from "react"
 
-const { width } = Dimensions.get("window")
+const { width, height } = Dimensions.get("window")
 
 const modernTheme = {
   light: {
@@ -59,6 +61,15 @@ const NotificationsScreen = () => {
   const colorScheme = useColorScheme() ?? "light"
   const colors = modernTheme[colorScheme]
   const currentUser = auth.currentUser
+  const navigation = useNavigation()
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Notifications",
+      headerBackTitle: "Back",
+      headerTitleAlign: "center",
+    })
+  }, [navigation])
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)

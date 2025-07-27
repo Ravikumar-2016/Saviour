@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '92%',
-    maxHeight: '92%',
+    maxHeight: '85%',
     borderRadius: 18,
     padding: 18,
     shadowColor: '#000',

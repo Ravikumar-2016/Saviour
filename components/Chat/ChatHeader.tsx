@@ -31,9 +31,11 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderColor: "#eee",
+    minHeight: 48,
   },
   avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
   title: { fontWeight: "bold", fontSize: 18 },

@@ -699,7 +699,7 @@ const styles = (colorScheme: "light" | "dark" = "light") =>
       backgroundColor: Colors[colorScheme].background,
     },
     confirmationTitle: {
-      fontSize: 28,
+      fontSize: 25,
       fontWeight: "bold",
       marginTop: 20,
       marginBottom: 10,

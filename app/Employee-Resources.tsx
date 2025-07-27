@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { Feather, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons"
 import { useColorScheme } from "@/hooks/useColorScheme"
 import { db, auth } from "@/lib/firebase"
+import { useNavigation } from "@react-navigation/native"
 import {
   addDoc,
   collection,
@@ -37,8 +38,18 @@ import {
 } from "firebase/firestore"
 import * as ImagePicker from "expo-image-picker"
 import { BlurView } from "expo-blur"
-// Function to fetch and cache resource image from Firestore
 import { getDoc } from "firebase/firestore"
+import { useLayoutEffect } from "react"
+
+export const unstable_settings = {
+  initialRouteName: "Resources",
+}
+
+export const screenOptions = {
+  headerTitle: "Resource Center",
+  headerBackTitle: "Back",
+  headerTitleAlign: "center",
+}
 
 const { width, height } = Dimensions.get("window")
 
@@ -218,6 +229,15 @@ const EmployeeResourcesScreen = () => {
   const colorScheme = useColorScheme() ?? "light"
   const colors = modernTheme[colorScheme]
   const currentUser = auth.currentUser
+    const navigation = useNavigation()
+  
+    useLayoutEffect(() => {
+      navigation.setOptions({
+        headerTitle: "Employee Resource Center",
+        headerBackTitle: "Back",
+        headerTitleAlign: "center",
+      })
+    }, [navigation])
 
   // States
   const [resources, setResources] = useState<Resource[]>([])
@@ -1357,12 +1377,12 @@ const getResourceImageSource = (resource: Resource) => {
           >
             {selectedRequest && (
               <>
-                <View style={styles.modalHeader}>
+                <SafeAreaView style={styles.modalHeader}>
                   <Text style={[styles.modalTitle, { color: colors.text }]}>Request Details</Text>
                   <TouchableOpacity onPress={() => setRequestModalVisible(false)} style={styles.closeButton}>
                     <Feather name="x" size={24} color={colors.textSecondary} />
                   </TouchableOpacity>
-                </View>
+                </SafeAreaView>
 
                 <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
                   <View style={styles.requestDetailCard}>
@@ -1866,6 +1886,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     marginBottom: 24,
+    width: 350,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1992,6 +2013,8 @@ const styles = StyleSheet.create({
   requestDetailCard: {
     padding: 16,
     borderRadius: 16,
+    height: 100,
+    width: 350,
     backgroundColor: "rgba(0,0,0,0.02)",
   },
   requestDetailHeader: {
