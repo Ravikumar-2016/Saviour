@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Image } from "react-native";
 import { useColorScheme } from "../../hooks/useColorScheme";
 import { Colors } from "../../constants/Colors";
+import { resolveAvatarUrl } from "./resolveAvatarUrl";
 
 type Props = {
   title: string;
@@ -11,10 +12,20 @@ type Props = {
 
 export default function ChatHeader({ title, avatar, subtitle }: Props) {
   const colorScheme = useColorScheme() ?? "light";
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    resolveAvatarUrl(avatar).then((uri) => {
+      if (mounted) setAvatarUri(uri);
+    });
+    return () => { mounted = false; };
+  }, [avatar]);
+
   return (
     <View style={[styles.header, { backgroundColor: Colors[colorScheme].card }]}>
       <Image
-        source={avatar ? { uri: avatar } : require("../../assets/images/default-avatar.png")}
+        source={avatarUri ? { uri: avatarUri } : require("../../assets/images/default-avatar.png")}
         style={styles.avatar}
       />
       <View>

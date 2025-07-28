@@ -3,11 +3,7 @@
 import { useEffect, useState } from "react"
 import {
   Alert,
-  Animated,
-  Dimensions,
   Image,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -15,11 +11,16 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  Animated,
+  Easing,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
-import * as ImagePicker from "expo-image-picker"
 import { useRouter } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
+import * as ImagePicker from "expo-image-picker"
+import * as Location from "expo-location"
 import {
   getAuth,
   signOut,
@@ -29,15 +30,12 @@ import {
   onAuthStateChanged,
   type User,
 } from "firebase/auth"
-import { doc, getDoc, updateDoc, setDoc, collection, addDoc } from "firebase/firestore"
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore"
 import { db } from "../../lib/firebase"
 import { Colors } from "@/constants/Colors"
 import { useColorScheme } from "@/hooks/useColorScheme"
 import { ThemedText } from "@/components/ThemedText"
 import { ThemedView } from "@/components/ThemedView"
-
-const { width } = Dimensions.get("window")
-const isTablet = width >= 768
 
 type ModalInputProps = {
   visible: boolean
@@ -48,8 +46,6 @@ type ModalInputProps = {
   onSubmit: (value: string) => void
   theme: "light" | "dark"
 }
-
-const EMERGENCY_TYPES = ["Medical", "Fire", "Police", "Other"]
 
 function ModalInput({ visible, title, placeholder, secureTextEntry, onCancel, onSubmit, theme }: ModalInputProps) {
   const [value, setValue] = useState("")
@@ -68,6 +64,7 @@ function ModalInput({ visible, title, placeholder, secureTextEntry, onCancel, on
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 300,
+          easing: Easing.out(Easing.back(1.2)),
           useNativeDriver: true,
         }),
       ]).start()
@@ -87,7 +84,7 @@ function ModalInput({ visible, title, placeholder, secureTextEntry, onCancel, on
     }
   }, [visible])
 
-  const backgroundColor = theme === "dark" ? Colors.dark.card : Colors.light.background
+  const backgroundColor = theme === "dark" ? Colors.dark.inputBackground : Colors.light.background
   const textColor = theme === "dark" ? Colors.dark.text : Colors.light.text
   const borderColor = theme === "dark" ? Colors.dark.border : Colors.light.border
   const buttonColor = theme === "dark" ? Colors.dark.tint : Colors.light.tint
@@ -200,7 +197,7 @@ function ModalInput({ visible, title, placeholder, secureTextEntry, onCancel, on
   )
 }
 
-export default function ProfileScreen() {
+export default function EmployeeProfileScreen() {
   const colorScheme = useColorScheme() ?? "light"
   const theme = colorScheme
   const s = styles(theme)
@@ -210,76 +207,110 @@ export default function ProfileScreen() {
   // Animation values
   const profileImageScale = useState(new Animated.Value(1))[0]
   const buttonScale = useState(new Animated.Value(1))[0]
-  const chipScale = useState(new Animated.Value(1))[0]
 
   // Auth state
   const [user, setUser] = useState<User | null>(auth.currentUser)
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser)
-      if (!firebaseUser) {
-        router.replace("/(auth)/login")
-      }
-    })
-    return unsubscribe
-  }, [])
 
   // Profile state
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
+  const [contact, setContact] = useState("")
+  const [designation, setDesignation] = useState("")
+  const [notifications, setNotifications] = useState(true)
   const [photo, setPhoto] = useState<string | null>(null)
-  const [onDuty, setOnDuty] = useState(false)
-  const [preferredTypes, setPreferredTypes] = useState<string[]>([])
-  const [shift, setShift] = useState("")
-  const [verified, setVerified] = useState(false)
-  const [city, setCity] = useState<string | null>(null)
-
-  // Modal state
-  const [modal, setModal] = useState<null | "changePasswordOld" | "changePasswordNew" | "reportAbuse">(null)
-  const [modalCallback, setModalCallback] = useState<(value: string) => void>(() => () => {})
-  const [tempPassword, setTempPassword] = useState("")
-
-  // Photo upload state
   const [photoUploading, setPhotoUploading] = useState(false)
-
-  // Image data state - this will hold the actual base64 data
   const [displayImage, setDisplayImage] = useState<string | null>(null)
   const [imageLoading, setImageLoading] = useState(false)
 
-  // Fetch user profile (employeeId = user.uid)
+  // Modal state
+  const [modal, setModal] = useState<null | "changePasswordOld" | "changePasswordNew">(null)
+  const [modalCallback, setModalCallback] = useState<(value: string) => void>(() => () => {})
+  const [tempPassword, setTempPassword] = useState("")
+
+  // Current city state
+  const [currentCity, setCurrentCity] = useState<string | null>(null)
+  const [cityLoading, setCityLoading] = useState(true)
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser)
+      if (!firebaseUser) {
+        router.replace("/login")
+      }
+    })
+    return unsubscribe
+  }, [])
+
+  // Fetch employee profile
   useEffect(() => {
     if (!user) return
+
     const fetchProfile = async () => {
       setLoading(true)
       try {
-        const userDoc = await getDoc(doc(db, "employees", user.uid))
-        if (userDoc.exists()) {
-          const data = userDoc.data() || {}
-
-          if (data.role !== "employee") {
-            Alert.alert("Access Denied", "You are not an employee.")
-            router.replace("/(auth)/login")
-            return
-          }
-
-          setName(data.fullName || data.displayName || "")
-          setPhone(data.phone || "")
+        const empDoc = await getDoc(doc(db, "employees", user.uid))
+        if (empDoc.exists()) {
+          const data = empDoc.data() || {}
+          setName(data.fullName || "")
+          setContact(data.contact || "")
+          setDesignation(data.designation || "")
+          setNotifications(data.notifications ?? true)
           setPhoto(data.photoUrl || null)
-          setOnDuty(data.onDuty || false)
-          setPreferredTypes(data.preferredTypes || [])
-          setShift(data.shift || "")
-          setVerified(data.verified || false)
-          setCity(data.city || null)
+        } else {
+          // Create employee document if it doesn't exist
+          await setDoc(doc(db, "employees", user.uid), {
+            fullName: "",
+            contact: "",
+            designation: "",
+            notifications: true,
+            photoUrl: null,
+            role: "employee",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
         }
-      } catch (e) {
+      } catch {
         Alert.alert("Error", "Failed to fetch profile data.")
       }
       setLoading(false)
     }
+
     fetchProfile()
   }, [user])
+
+  // Fetch current city
+  useEffect(() => {
+    const fetchCurrentCity = async () => {
+      setCityLoading(true)
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status !== "granted") {
+          setCurrentCity(null)
+          setCityLoading(false)
+          return
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        })
+
+        const geo = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        })
+
+        if (geo && geo[0] && geo[0].city) setCurrentCity(geo[0].city)
+        else setCurrentCity(null)
+      } catch {
+        setCurrentCity(null)
+      }
+      setCityLoading(false)
+    }
+
+    fetchCurrentCity()
+  }, [])
 
   // Fetch image data when photo URL changes
   useEffect(() => {
@@ -304,7 +335,7 @@ export default function ProfileScreen() {
           } else {
             setDisplayImage(null)
           }
-        } catch (error) {
+        } catch {
           setDisplayImage(null)
         }
         setImageLoading(false)
@@ -315,31 +346,23 @@ export default function ProfileScreen() {
     fetchImageData()
   }, [photo])
 
-  // Save all profile fields to Firestore (employeeId = user.uid)
+  // Save profile changes
   const saveProfile = async () => {
     if (!user) return
     setSaving(true)
     try {
-      await setDoc(
-        doc(db, "employees", user.uid),
-        {
-          fullName: name,
-          displayName: name,
-          phone,
-          photoUrl: photo,
-          onDuty,
-          preferredTypes,
-          shift,
-          verified,
-          city,
-          role: "employee",
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true },
-      )
-      Alert.alert("Profile Updated", "Your employee profile has been updated.")
-    } catch (e) {
-      Alert.alert("Error", "Failed to update profile.")
+      await updateDoc(doc(db, "employees", user.uid), {
+        fullName: name,
+        contact,
+        designation,
+        notifications,
+        photoUrl: photo,
+        role: "employee",
+        updatedAt: new Date(),
+      })
+      Alert.alert("Profile Updated", "Your profile has been updated successfully.")
+    } catch {
+      Alert.alert("Error", "Failed to update profile. Please try again.")
     }
     setSaving(false)
   }
@@ -424,14 +447,101 @@ export default function ProfileScreen() {
         })
 
         Alert.alert("Success", "Profile photo updated successfully!")
-      } catch (uploadError) {
+      } catch {
         Alert.alert("Upload Error", "Failed to upload photo. Please try again.")
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to select image. Please try again.")
     } finally {
       setPhotoUploading(false)
     }
+  }
+
+  // Toggle notifications with animation
+  const handleToggleNotifications = async (value: boolean) => {
+    Animated.spring(buttonScale, {
+      toValue: 0.9,
+      friction: 3,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.spring(buttonScale, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      }).start()
+    })
+
+    setNotifications(value)
+    if (user) {
+      try {
+        await updateDoc(doc(db, "employees", user.uid), { notifications: value })
+      } catch {
+        setNotifications(!value)
+        Alert.alert("Error", "Failed to update notification settings.")
+      }
+    }
+  }
+
+  // Change password
+  const handleChangePassword = () => {
+    setModalCallback(() => async (oldPassword: string) => {
+      setModal(null)
+      if (!oldPassword) return
+
+      setTempPassword(oldPassword)
+      setTimeout(() => {
+        setModalCallback(() => async (newPassword: string) => {
+          setModal(null)
+          if (!newPassword) return
+
+          if (newPassword.length < 6) {
+            Alert.alert("Error", "Password must be at least 6 characters long.")
+            return
+          }
+
+          try {
+            if (!user?.email) throw new Error("No email found")
+
+            const credential = EmailAuthProvider.credential(user.email, oldPassword)
+            await reauthenticateWithCredential(user, credential)
+            await updatePassword(user, newPassword)
+            Alert.alert("Success", "Password changed successfully.")
+          } catch (e: any) {
+            let errorMessage = "Failed to change password. "
+            if (e.code === "auth/wrong-password") {
+              errorMessage = "Current password is incorrect."
+            } else if (e.code === "auth/weak-password") {
+              errorMessage = "New password is too weak."
+            } else if (e.code === "auth/requires-recent-login") {
+              errorMessage = "Please log out and log back in, then try again."
+            } else {
+              errorMessage += e.message || "Please try again."
+            }
+            Alert.alert("Error", errorMessage)
+          }
+        })
+        setModal("changePasswordNew")
+      }, 300)
+    })
+    setModal("changePasswordOld")
+  }
+
+  // Logout with confirmation
+  const handleLogout = async () => {
+    Alert.alert("Confirm Logout", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth)
+          } catch {
+            Alert.alert("Logout Failed", "Could not log out. Try again.")
+          }
+        },
+      },
+    ])
   }
 
   // Helper function to render profile image
@@ -455,8 +565,8 @@ export default function ProfileScreen() {
     if (!displayImage) {
       return (
         <View style={s.photoPlaceholder}>
-          <Ionicons name="person" size={isTablet ? 48 : 40} color={Colors[theme].textMuted} />
-          <ThemedText style={s.photoEditText}>Edit</ThemedText>
+          <Ionicons name="person" size={48} color={Colors[theme].textMuted} />
+          <ThemedText style={s.photoEditText}>Add Photo</ThemedText>
         </View>
       )
     }
@@ -469,171 +579,45 @@ export default function ProfileScreen() {
     )
   }
 
-  // Toggle duty status and save to Firestore
-  const handleToggleDuty = async (value: boolean) => {
-    Animated.spring(buttonScale, {
-      toValue: 0.9,
-      friction: 3,
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.spring(buttonScale, {
-        toValue: 1,
-        friction: 3,
-        useNativeDriver: true,
-      }).start()
-    })
-
-    setOnDuty(value)
-    if (user) {
-      await updateDoc(doc(db, "employees", user.uid), { onDuty: value })
-    }
-  }
-
-  // Toggle preferred emergency type (local only, saved on Save)
-  const toggleType = (type: string) => {
-    Animated.sequence([
-      Animated.timing(chipScale, {
-        toValue: 0.9,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(chipScale, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start()
-
-    setPreferredTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]))
-  }
-
-  // Change password
-  const handleChangePassword = () => {
-    setModalCallback(() => async (oldPassword: string) => {
-      setModal(null)
-      if (!oldPassword) return
-      setTempPassword(oldPassword)
-      setTimeout(() => {
-        setModalCallback(() => async (newPassword: string) => {
-          setModal(null)
-          if (!newPassword) return
-          try {
-            if (!user?.email) throw new Error("No email found")
-            const credential = EmailAuthProvider.credential(user.email, oldPassword)
-            await reauthenticateWithCredential(user, credential)
-            await updatePassword(user, newPassword)
-            Alert.alert("Success", "Password changed successfully.")
-          } catch (e: any) {
-            Alert.alert("Error", e.message || "Failed to change password.")
-          }
-        })
-        setModal("changePasswordNew")
-      }, 300)
-    })
-    setModal("changePasswordOld")
-  }
-
-  // Logout with confirmation
-  const handleLogout = async () => {
-    Alert.alert("Confirm Logout", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await signOut(auth)
-          } catch (e) {
-            Alert.alert("Logout Failed", "Could not log out. Try again.")
-          }
-        },
-      },
-    ])
-  }
-
-  // Report abuse, save to abuse_reports with employeeId
-  const handleReportAbuse = () => {
-    setModalCallback(() => async (desc: string) => {
-      setModal(null)
-      if (!desc) return
-      try {
-        await addDoc(collection(db, "abuse_reports"), {
-          userId: user?.uid,
-          description: desc,
-          createdAt: new Date().toISOString(),
-          userType: "employee",
-        })
-        Alert.alert("Reported", "Thank you for reporting. We'll review your report.")
-      } catch (e) {
-        Alert.alert("Error", "Failed to submit report.")
-      }
-    })
-    setModal("reportAbuse")
-  }
-
   if (!user || loading) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView
+        style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors[theme].background }}
+      >
         <ActivityIndicator size="large" color={Colors[theme].tint} />
+        <ThemedText style={{ marginTop: 16, color: Colors[theme].text }}>Loading profile...</ThemedText>
       </SafeAreaView>
     )
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors[theme].background }} edges={["top", "left", "right"]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
         <ThemedView style={s.container}>
           <ThemedText style={s.headerTitle}>Employee Profile</ThemedText>
 
-          {/* City from database */}
+          {/* Current City */}
           <View style={s.cityContainer}>
             <Ionicons name="location" size={18} color={Colors[theme].tint} style={{ marginRight: 6 }} />
             <ThemedText style={s.cityText}>
-              {city ? city : "City not available"}
+              {cityLoading ? "Detecting your current city..." : currentCity ? currentCity : "Location not available"}
             </ThemedText>
           </View>
 
-          {/* Profile Photo & Badge */}
-          <View style={s.photoRow}>
-            <Animated.View style={{ transform: [{ scale: profileImageScale }] }}>
-              <TouchableOpacity
-                style={s.photoContainer}
-                onPress={pickImage}
-                activeOpacity={0.7}
-                disabled={photoUploading || imageLoading}
-              >
-                {renderProfileImage()}
-                <View style={s.photoEditBadge}>
-                  <Ionicons name="camera" size={16} color={Colors[theme].background} />
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <View style={s.badgeCol}>
-              {verified && (
-                <View style={s.verifiedBadge}>
-                  <MaterialCommunityIcons name="shield-check" size={22} color="#22c55e" />
-                  <ThemedText style={s.verifiedText}>Verified Employee</ThemedText>
-                </View>
-              )}
-              <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-                <View style={s.dutyRow}>
-                  <ThemedText style={[s.dutyText, { color: onDuty ? "#22c55e" : "#ef4444" }]}>
-                    {onDuty ? "On Duty" : "Off Duty"}
-                  </ThemedText>
-                  <Switch
-                    value={onDuty}
-                    onValueChange={handleToggleDuty}
-                    thumbColor={onDuty ? "#22c55e" : Colors[theme].switchThumb}
-                    trackColor={{
-                      false: Colors[theme].switchTrack,
-                      true: "#22c55e55",
-                    }}
-                  />
-                </View>
-              </Animated.View>
-            </View>
-          </View>
+          {/* Profile Photo */}
+          <Animated.View style={{ transform: [{ scale: profileImageScale }] }}>
+            <TouchableOpacity
+              style={s.photoContainer}
+              onPress={pickImage}
+              activeOpacity={0.7}
+              disabled={photoUploading || imageLoading}
+            >
+              {renderProfileImage()}
+              <View style={s.photoEditBadge}>
+                <Ionicons name="camera" size={16} color={Colors[theme].background} />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
 
           {/* Save Button */}
           <TouchableOpacity
@@ -648,7 +632,7 @@ export default function ProfileScreen() {
 
           {/* Profile Fields */}
           <View style={s.section}>
-            <ThemedText style={s.sectionTitle}>Employee Information</ThemedText>
+            <ThemedText style={s.sectionTitle}>Personal Information</ThemedText>
 
             <View style={s.inputGroup}>
               <ThemedText style={s.label}>Full Name</ThemedText>
@@ -656,7 +640,7 @@ export default function ProfileScreen() {
                 style={s.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Your name"
+                placeholder="Full name"
                 placeholderTextColor={Colors[theme].textMuted}
               />
             </View>
@@ -665,10 +649,21 @@ export default function ProfileScreen() {
               <ThemedText style={s.label}>Contact Number</ThemedText>
               <TextInput
                 style={s.input}
-                value={phone}
-                onChangeText={setPhone}
+                value={contact}
+                onChangeText={setContact}
                 placeholder="Phone number"
                 keyboardType="phone-pad"
+                placeholderTextColor={Colors[theme].textMuted}
+              />
+            </View>
+
+            <View style={s.inputGroup}>
+              <ThemedText style={s.label}>Designation</ThemedText>
+              <TextInput
+                style={s.input}
+                value={designation}
+                onChangeText={setDesignation}
+                placeholder="Designation"
                 placeholderTextColor={Colors[theme].textMuted}
               />
             </View>
@@ -676,50 +671,34 @@ export default function ProfileScreen() {
 
           {/* Preferences Section */}
           <View style={s.section}>
-            <ThemedText style={s.sectionTitle}>Response Preferences</ThemedText>
+            <ThemedText style={s.sectionTitle}>Preferences</ThemedText>
 
-            <View style={s.inputGroup}>
-              <ThemedText style={s.label}>Preferred Emergency Types</ThemedText>
-              <View style={s.typeRow}>
-                {EMERGENCY_TYPES.map((type) => (
-                  <Animated.View key={type} style={{ transform: [{ scale: chipScale }] }}>
-                    <TouchableOpacity
-                      style={[s.typeChip, preferredTypes.includes(type) && s.typeChipActive]}
-                      onPress={() => toggleType(type)}
-                    >
-                      <ThemedText style={[s.typeChipText, preferredTypes.includes(type) && s.typeChipTextActive]}>
-                        {type}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  </Animated.View>
-                ))}
+            <View style={s.switchRow}>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={s.label}>Notifications</ThemedText>
+                <ThemedText style={s.subLabel}>Receive alerts and updates</ThemedText>
               </View>
-            </View>
-
-            <View style={s.inputGroup}>
-              <ThemedText style={s.label}>Shift Schedule</ThemedText>
-              <TextInput
-                style={s.input}
-                value={shift}
-                onChangeText={setShift}
-                placeholder="e.g. 08:00 - 16:00"
-                placeholderTextColor={Colors[theme].textMuted}
-              />
+              <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                <Switch
+                  value={notifications}
+                  onValueChange={handleToggleNotifications}
+                  thumbColor={notifications ? Colors[theme].tint : Colors[theme].switchThumb}
+                  trackColor={{
+                    false: Colors[theme].switchTrack,
+                    true: Colors[theme].tint + "55",
+                  }}
+                />
+              </Animated.View>
             </View>
           </View>
 
           {/* Security Section */}
           <View style={s.section}>
-            <ThemedText style={s.sectionTitle}>Account</ThemedText>
+            <ThemedText style={s.sectionTitle}>Security</ThemedText>
 
             <TouchableOpacity style={s.securityButton} onPress={handleChangePassword} activeOpacity={0.7}>
               <Ionicons name="key" size={20} color={Colors[theme].tint} style={{ marginRight: 12 }} />
               <ThemedText style={s.securityButtonText}>Change Password</ThemedText>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.securityButton} onPress={handleReportAbuse} activeOpacity={0.7}>
-              <Ionicons name="alert-circle" size={20} color="#EC407A" style={{ marginRight: 12 }} />
-              <ThemedText style={[s.securityButtonText, { color: "#EC407A" }]}>Report Abuse</ThemedText>
             </TouchableOpacity>
           </View>
 
@@ -743,16 +722,8 @@ export default function ProfileScreen() {
         <ModalInput
           visible={modal === "changePasswordNew"}
           title="Enter New Password"
-          placeholder="New Password"
+          placeholder="New Password (min 6 characters)"
           secureTextEntry
-          onCancel={() => setModal(null)}
-          onSubmit={modalCallback}
-          theme={theme}
-        />
-        <ModalInput
-          visible={modal === "reportAbuse"}
-          title="Report Abuse"
-          placeholder="Describe the issue"
           onCancel={() => setModal(null)}
           onSubmit={modalCallback}
           theme={theme}
@@ -764,18 +735,17 @@ export default function ProfileScreen() {
 
 const styles = (theme: "light" | "dark") =>
   StyleSheet.create({
-    headerTitle: {
-      fontSize: 22,
-      fontWeight: "bold",
-      color: Colors[theme].tint,
-      textAlign: "center",
-      marginTop: 18,
-      marginBottom: 10,
-    },
     container: {
       flex: 1,
-      padding: isTablet ? 24 : 16,
+      padding: 20,
       paddingBottom: 30,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: "bold",
+      color: Colors[theme].tint,
+      marginBottom: 18,
+      textAlign: "center",
     },
     cityContainer: {
       flexDirection: "row",
@@ -792,23 +762,18 @@ const styles = (theme: "light" | "dark") =>
       fontWeight: "500",
       color: Colors[theme].tint,
     },
-    photoRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 18,
-      gap: 18,
-    },
     photoContainer: {
-      width: isTablet ? 110 : 80,
-      height: isTablet ? 110 : 80,
-      borderRadius: isTablet ? 55 : 40,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
       backgroundColor: theme === "dark" ? Colors.dark.card : Colors.light.inputBackground,
+      alignSelf: "center",
       justifyContent: "center",
       alignItems: "center",
-      borderWidth: 2,
+      marginBottom: 20,
+      borderWidth: 3,
       borderColor: Colors[theme].tint + "33",
       overflow: "hidden",
-      position: "relative",
     },
     photo: {
       width: "100%",
@@ -819,66 +784,32 @@ const styles = (theme: "light" | "dark") =>
       justifyContent: "center",
     },
     photoEditText: {
-      fontSize: 13,
+      fontSize: 14,
       color: Colors[theme].tint,
       marginTop: 6,
       fontWeight: "500",
     },
     photoEditBadge: {
       position: "absolute",
-      bottom: 6,
-      right: 6,
+      bottom: 8,
+      right: 8,
       backgroundColor: Colors[theme].tint,
-      width: 26,
-      height: 26,
-      borderRadius: 13,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       justifyContent: "center",
       alignItems: "center",
-    },
-    badgeCol: {
-      flex: 1,
-      alignItems: "flex-start",
-      gap: 10,
-    },
-    verifiedBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: theme === "dark" ? "#1a2e22" : "#d1fae5",
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      marginBottom: 4,
-      marginTop: 2,
-    },
-    verifiedText: {
-      color: "#22c55e",
-      fontWeight: "bold",
-      marginLeft: 6,
-      fontSize: 14,
-    },
-    dutyRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: theme === "dark" ? Colors.dark.card : Colors.light.inputBackground,
-      borderRadius: 20,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      marginTop: 4,
-    },
-    dutyText: {
-      fontWeight: "bold",
-      marginRight: 8,
-      fontSize: 14,
     },
     saveButton: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: Colors[theme].tint,
-      paddingVertical: 14,
+      paddingVertical: 12,
       paddingHorizontal: 20,
       borderRadius: 10,
       marginBottom: 24,
+      alignSelf: "center",
       shadowColor: Colors[theme].tint,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.2,
@@ -911,6 +842,11 @@ const styles = (theme: "light" | "dark") =>
       marginBottom: 6,
       color: Colors[theme].text,
     },
+    subLabel: {
+      fontSize: 13,
+      color: Colors[theme].textMuted,
+      marginBottom: 8,
+    },
     input: {
       borderWidth: 1,
       borderColor: Colors[theme].border,
@@ -921,30 +857,11 @@ const styles = (theme: "light" | "dark") =>
       color: Colors[theme].text,
       backgroundColor: theme === "dark" ? Colors.dark.card : Colors.light.inputBackground,
     },
-    typeRow: {
+    switchRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      marginTop: 8,
-    },
-    typeChip: {
-      backgroundColor: theme === "dark" ? Colors.dark.card : Colors.light.inputBackground,
-      borderRadius: 16,
-      paddingHorizontal: 14,
+      alignItems: "center",
+      justifyContent: "space-between",
       paddingVertical: 8,
-      borderWidth: 1,
-      borderColor: Colors[theme].border,
-    },
-    typeChipActive: {
-      backgroundColor: Colors[theme].tint,
-      borderColor: Colors[theme].tint,
-    },
-    typeChipText: {
-      fontSize: 14,
-      color: Colors[theme].text,
-    },
-    typeChipTextActive: {
-      color: "#fff",
     },
     securityButton: {
       flexDirection: "row",
@@ -958,6 +875,7 @@ const styles = (theme: "light" | "dark") =>
     securityButtonText: {
       fontSize: 15,
       fontWeight: "500",
+      color: Colors[theme].text,
     },
     logoutButton: {
       flexDirection: "row",

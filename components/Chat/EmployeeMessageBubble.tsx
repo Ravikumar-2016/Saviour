@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, Pressable, Alert } from "react-native";
 import { ChatMessage } from "./EmployeeChatRoom";
 import MediaPreview from "./MediaPreview";
@@ -6,6 +6,7 @@ import { useColorScheme } from "../../hooks/useColorScheme";
 import { Colors } from "../../constants/Colors";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
+import { resolveAvatarUrl } from "./resolveAvatarUrl";
 
 type Props = {
   message: ChatMessage;
@@ -43,10 +44,17 @@ export default function EmployeeMessageBubble({ message, isOwn, onProfilePress }
   const [profileModal, setProfileModal] = useState(false);
 
   const displayName = message.fullName || message.userName || message.email || "User";
-  const avatar =
-    message.photoUrl ||
-    message.userAvatar ||
-    require("../../assets/images/default-avatar.png");
+  const avatarUrl = message.photoUrl || message.userAvatar || null;
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    resolveAvatarUrl(avatarUrl).then((uri) => {
+      if (mounted) setAvatarUri(uri);
+    });
+    return () => { mounted = false; };
+  }, [avatarUrl]);
+
   const handleCopy = () => {
     Clipboard.setStringAsync(message.text || "");
     Alert.alert("Copied", "Message copied to clipboard");
@@ -66,9 +74,9 @@ export default function EmployeeMessageBubble({ message, isOwn, onProfilePress }
         <TouchableOpacity onPress={() => setProfileModal(true)}>
           <Image
             source={
-              typeof avatar === "string"
-                ? { uri: avatar }
-                : avatar
+              avatarUri
+                ? { uri: avatarUri }
+                : require("../../assets/images/default-avatar.png")
             }
             style={styles.avatar}
           />
@@ -114,14 +122,14 @@ export default function EmployeeMessageBubble({ message, isOwn, onProfilePress }
             </TouchableOpacity>
             <Image
               source={
-                typeof avatar === "string"
-                  ? { uri: avatar }
-                  : avatar
+                avatarUri
+                  ? { uri: avatarUri }
+                  : require("../../assets/images/default-avatar.png")
               }
               style={styles.profileAvatar}
             />
             <Text style={[styles.profileName, { color: Colors[colorScheme].text }]}>
-              {message.fullName || message.userName || message.email || "User"}
+              {displayName}
             </Text>
             {message.email && (
               <Text style={{ color: Colors[colorScheme].textMuted, fontSize: 15, marginTop: 4 }}>

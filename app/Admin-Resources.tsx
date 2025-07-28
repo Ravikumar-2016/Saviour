@@ -1809,8 +1809,8 @@ const styles = StyleSheet.create({
   modernModalContent: {
     width: "100%",
     maxWidth: 500,
-    maxHeight: "100%",
-    minHeight: "100%",
+    maxHeight: "85%",
+    minHeight: "85%",
     borderRadius: 20,
     padding: 0,
     shadowColor: "#000",
@@ -2004,7 +2004,7 @@ const styles = StyleSheet.create({
   requestDetailCard: {
     padding: 16,
     borderRadius: 16,
-    height: 100,
+    height: 85,
     width: 350,
     backgroundColor: "rgba(0,0,0,0.02)",
   },

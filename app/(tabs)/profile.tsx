@@ -214,14 +214,14 @@ export default function ProfileScreen() {
   const router = useRouter()
   const auth = getAuth()
 
-  // Animation values - all declared at the top
+  // Animation values
   const profileImageScale = useState(new Animated.Value(1))[0]
   const buttonScale = useState(new Animated.Value(1))[0]
 
   // Auth state
   const [user, setUser] = useState<User | null>(auth.currentUser)
 
-  // Profile state - all declared at the top
+  // Profile state
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
@@ -264,15 +264,12 @@ export default function ProfileScreen() {
     const fetchProfile = async () => {
       setLoading(true)
       try {
-        console.log("Fetching user profile for:", user.uid)
         const userDoc = await getDoc(doc(db, "users", user.uid))
         if (userDoc.exists()) {
           const data = userDoc.data() || {}
-          console.log("User profile data:", data)
 
-          // Verify this is actually a user (not admin or employee)
+          // Only allow users (not admin/employee)
           if (data.role !== "user") {
-            console.log("User has role:", data.role, "- redirecting to appropriate screen")
             if (data.role === "admin") {
               router.replace("/Admin")
             } else if (data.role === "employee") {
@@ -288,7 +285,6 @@ export default function ProfileScreen() {
           setPhoto(data.photoUrl || null)
           setBlockedUsers(data.blockedUsers || [])
         } else {
-          console.log("User document does not exist, creating one...")
           // Create user document if it doesn't exist
           await setDoc(doc(db, "users", user.uid), {
             fullName: "",
@@ -297,7 +293,7 @@ export default function ProfileScreen() {
             notifications: true,
             photoUrl: null,
             blockedUsers: [],
-            role: "user", // Explicitly set role
+            role: "user",
             createdAt: new Date(),
             updatedAt: new Date(),
           })
@@ -319,13 +315,10 @@ export default function ProfileScreen() {
                 return bDate.getTime() - aDate.getTime()
               }),
           )
-        } catch (historyError) {
-          console.log("Error fetching help history:", historyError)
-          // Don't fail the whole profile load if history fails
+        } catch {
           setHelpHistory([])
         }
-      } catch (e) {
-        console.error("Error fetching profile:", e)
+      } catch {
         Alert.alert("Error", "Failed to fetch profile data.")
       }
       setLoading(false)
@@ -357,8 +350,7 @@ export default function ProfileScreen() {
 
         if (geo && geo[0] && geo[0].city) setCurrentCity(geo[0].city)
         else setCurrentCity(null)
-      } catch (e) {
-        console.error("Location error:", e)
+      } catch {
         setCurrentCity(null)
       }
       setCityLoading(false)
@@ -370,58 +362,40 @@ export default function ProfileScreen() {
   // Fetch image data when photo URL changes
   useEffect(() => {
     const fetchImageData = async () => {
-      console.log("Photo changed to:", photo)
-
       if (!photo) {
-        console.log("No photo URL, clearing display image")
         setDisplayImage(null)
         return
       }
-
       if (photo.startsWith("firestore://")) {
-        console.log("Fetching Firestore image data...")
         setImageLoading(true)
         try {
           const parts = photo.split("/")
           const imageId = parts[parts.length - 1]
-          console.log("Image ID:", imageId)
-
           const imageDoc = await getDoc(doc(db, "profile_images", imageId))
           if (imageDoc.exists()) {
             const data = imageDoc.data()
-            console.log("Image document found, data keys:", Object.keys(data))
-            console.log("Image data length:", data.imageData?.length)
-
             if (data.imageData) {
               setDisplayImage(data.imageData)
-              console.log("Display image set successfully")
             } else {
-              console.log("No imageData field in document")
               setDisplayImage(null)
             }
           } else {
-            console.log("Image document not found")
             setDisplayImage(null)
           }
-        } catch (error) {
-          console.error("Error fetching image data:", error)
+        } catch {
           setDisplayImage(null)
         }
         setImageLoading(false)
       } else {
-        // Regular URL
-        console.log("Using regular URL as display image")
         setDisplayImage(photo)
       }
     }
-
     fetchImageData()
   }, [photo])
 
   // Save profile changes
   const saveProfile = async () => {
     if (!user) return
-
     setSaving(true)
     try {
       await updateDoc(doc(db, "users", user.uid), {
@@ -431,12 +405,11 @@ export default function ProfileScreen() {
         notifications,
         photoUrl: photo,
         blockedUsers,
-        role: "user", // Ensure role is maintained
+        role: "user",
         updatedAt: new Date(),
       })
       Alert.alert("Profile Updated", "Your profile has been updated successfully.")
-    } catch (e) {
-      console.error("Error updating profile:", e)
+    } catch {
       Alert.alert("Error", "Failed to update profile. Please try again.")
     }
     setSaving(false)
@@ -449,7 +422,6 @@ export default function ProfileScreen() {
       return
     }
 
-    // Animation feedback
     Animated.sequence([
       Animated.timing(profileImageScale, {
         toValue: 0.95,
@@ -464,19 +436,17 @@ export default function ProfileScreen() {
     ]).start()
 
     try {
-      // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (status !== "granted") {
         Alert.alert("Permission Denied", "Camera roll permissions are required to upload profile photos.")
         return
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5, // Reduced quality for smaller base64 size
+        quality: 0.5,
         allowsMultipleSelection: false,
       })
 
@@ -492,17 +462,11 @@ export default function ProfileScreen() {
         return
       }
 
-      console.log("Selected image URI:", uri)
       setPhotoUploading(true)
 
       try {
-        console.log("Starting base64 storage method...")
-
-        // Convert image to base64
         const response = await fetch(uri)
         const blob = await response.blob()
-
-        // Convert blob to base64
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => {
@@ -513,12 +477,7 @@ export default function ProfileScreen() {
           reader.readAsDataURL(blob)
         })
 
-        console.log("Base64 string length:", base64.length)
-
-        // Create unique document ID
         const imageId = `user_${user.uid}_${Date.now()}`
-
-        // Store base64 image in Firestore
         await setDoc(doc(db, "profile_images", imageId), {
           userId: user.uid,
           imageData: base64,
@@ -526,12 +485,7 @@ export default function ProfileScreen() {
           type: "user_profile",
         })
 
-        console.log("Base64 image stored in Firestore")
-
-        // Update user profile with image reference
         const imageUrl = `firestore://profile_images/${imageId}`
-
-        // Set display image immediately for instant feedback
         setDisplayImage(base64)
         setPhoto(imageUrl)
 
@@ -540,14 +494,11 @@ export default function ProfileScreen() {
           photoUpdatedAt: new Date(),
         })
 
-        console.log("User profile updated with image reference")
         Alert.alert("Success", "Profile photo updated successfully!")
-      } catch (uploadError) {
-        console.error("Base64 storage failed:", uploadError)
+      } catch {
         Alert.alert("Upload Error", "Failed to upload photo. Please try again.")
       }
-    } catch (error) {
-      console.error("Image picker error:", error)
+    } catch {
       Alert.alert("Error", "Failed to select image. Please try again.")
     } finally {
       setPhotoUploading(false)
@@ -572,9 +523,7 @@ export default function ProfileScreen() {
     if (user) {
       try {
         await updateDoc(doc(db, "users", user.uid), { notifications: value })
-      } catch (error) {
-        console.error("Error updating notifications:", error)
-        // Revert the change if update fails
+      } catch {
         setNotifications(!value)
         Alert.alert("Error", "Failed to update notification settings.")
       }
@@ -606,9 +555,7 @@ export default function ProfileScreen() {
             await updatePassword(user, newPassword)
             Alert.alert("Success", "Password changed successfully.")
           } catch (e: any) {
-            console.error("Password change error:", e)
             let errorMessage = "Failed to change password. "
-
             if (e.code === "auth/wrong-password") {
               errorMessage = "Current password is incorrect."
             } else if (e.code === "auth/weak-password") {
@@ -618,7 +565,6 @@ export default function ProfileScreen() {
             } else {
               errorMessage += e.message || "Please try again."
             }
-
             Alert.alert("Error", errorMessage)
           }
         })
@@ -638,8 +584,7 @@ export default function ProfileScreen() {
         onPress: async () => {
           try {
             await signOut(auth)
-          } catch (e) {
-            console.error("Logout error:", e)
+          } catch {
             Alert.alert("Logout Failed", "Could not log out. Try again.")
           }
         },
@@ -675,9 +620,8 @@ export default function ProfileScreen() {
               try {
                 await updateDoc(doc(db, "users", user.uid), { blockedUsers: updated })
                 Alert.alert("Blocked", `${email} has been blocked.`)
-              } catch (error) {
-                console.error("Error blocking user:", error)
-                setBlockedUsers(blockedUsers) // Revert on error
+              } catch {
+                setBlockedUsers(blockedUsers)
                 Alert.alert("Error", "Failed to block user.")
               }
             }
@@ -703,9 +647,8 @@ export default function ProfileScreen() {
               try {
                 await updateDoc(doc(db, "users", user.uid), { blockedUsers: updated })
                 Alert.alert("Unblocked", `${email} has been unblocked.`)
-              } catch (error) {
-                console.error("Error unblocking user:", error)
-                setBlockedUsers(blockedUsers) // Revert on error
+              } catch {
+                setBlockedUsers(blockedUsers)
                 Alert.alert("Error", "Failed to unblock user.")
               }
             }
@@ -729,11 +672,10 @@ export default function ProfileScreen() {
           description: desc,
           createdAt: new Date(),
           status: "pending",
-          userType: "user", // Specify this is from a regular user
+          userType: "user",
         })
         Alert.alert("Reported", "Thank you for reporting. We'll review your report and take appropriate action.")
-      } catch (e) {
-        console.error("Error reporting abuse:", e)
+      } catch {
         Alert.alert("Error", "Failed to submit report. Please try again.")
       }
     })
@@ -742,15 +684,6 @@ export default function ProfileScreen() {
 
   // Helper function to render profile image
   const renderProfileImage = () => {
-    console.log(
-      "Rendering profile image - displayImage:",
-      !!displayImage,
-      "photoUploading:",
-      photoUploading,
-      "imageLoading:",
-      imageLoading,
-    )
-
     if (photoUploading) {
       return (
         <View style={s.photoPlaceholder}>
@@ -759,7 +692,6 @@ export default function ProfileScreen() {
         </View>
       )
     }
-
     if (imageLoading) {
       return (
         <View style={s.photoPlaceholder}>
@@ -768,7 +700,6 @@ export default function ProfileScreen() {
         </View>
       )
     }
-
     if (!displayImage) {
       return (
         <View style={s.photoPlaceholder}>
@@ -777,16 +708,11 @@ export default function ProfileScreen() {
         </View>
       )
     }
-
-    // Display the image
-    console.log("Displaying image with URI length:", displayImage.length)
     return (
       <Image
         source={{ uri: displayImage }}
         style={s.photo}
         resizeMode="cover"
-        onLoad={() => console.log("Image loaded successfully")}
-        onError={(error) => console.log("Image load error:", error)}
       />
     )
   }

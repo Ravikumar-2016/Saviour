@@ -25,8 +25,6 @@ import { db } from "../../lib/firebase";
 import {
   collection,
   getDocs,
-  query,
-  where,
 } from "firebase/firestore";
 
 const { width } = Dimensions.get("window");
@@ -217,7 +215,7 @@ export default function ManagementScreen() {
         snap.forEach((docSnap) => {
           const d = docSnap.data() as any;
           data.push({
-            id: docSnap.id,
+            id: "user_" + docSnap.id, // <-- prefix for uniqueness
             name: capitalize(d.fullName || d.name),
             email: d.email,
             phone: d.phone,
@@ -234,7 +232,7 @@ export default function ManagementScreen() {
         snap.forEach((docSnap) => {
           const d = docSnap.data() as any;
           data.push({
-            id: docSnap.id,
+            id: "employee_" + docSnap.id, // <-- prefix for uniqueness
             name: capitalize(d.fullName || d.name),
             email: d.email,
             phone: d.phone,
@@ -251,7 +249,7 @@ export default function ManagementScreen() {
         userSnap.forEach((docSnap) => {
           const d = docSnap.data() as any;
           data.push({
-            id: docSnap.id,
+            id: "user_" + docSnap.id, // <-- prefix for uniqueness
             name: capitalize(d.fullName || d.name),
             email: d.email,
             phone: d.phone,
@@ -266,7 +264,7 @@ export default function ManagementScreen() {
         empSnap.forEach((docSnap) => {
           const d = docSnap.data() as any;
           data.push({
-            id: docSnap.id,
+            id: "employee_" + docSnap.id, // <-- prefix for uniqueness
             name: capitalize(d.fullName || d.name),
             email: d.email,
             phone: d.phone,

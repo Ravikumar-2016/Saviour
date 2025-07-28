@@ -4,7 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs, useRouter } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { useEffect } from "react";
-import { useAuth } from "@/context/AuthContext"; // <-- Make sure this exists
+import { useAuth } from "@/context/AuthContext";
 
 export default function EmployeeTabs() {
   const colorScheme = useColorScheme() ?? "light";
