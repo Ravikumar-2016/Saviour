@@ -3,7 +3,7 @@
 import { Colors } from "@/constants/Colors"
 import { useColorScheme } from "@/hooks/useColorScheme"
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useLayoutEffect } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -11,13 +11,14 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native"
-import MapView, { Marker } from "react-native-maps"
+import MapView, { Marker, Callout } from "react-native-maps"
 import { SafeAreaView } from "react-native-safe-area-context"
 import {
   getFirestore,
@@ -32,6 +33,8 @@ import {
 } from "firebase/firestore"
 import { getAuth } from "firebase/auth"
 import SOSEditModal from "@/components/Modals/SOSEditModal"
+import * as Linking from 'expo-linking'
+import { useNavigation } from "expo-router"
 
 const { width } = Dimensions.get("window")
 const isTablet = width >= 768
@@ -98,7 +101,39 @@ type SOSRequest = {
   imageUrl?: string
 }
 
+// Helper function to open navigation apps
+const openDirections = (lat: number, lng: number, label: string) => {
+  const scheme = Platform.select({
+    ios: 'maps:',
+    android: 'geo:',
+    default: 'https://maps.google.com'
+  });
+
+  let url: string;
+
+  if (Platform.OS === 'ios') {
+    // Apple Maps URL format
+    url = `${scheme}?q=${encodeURIComponent(label)}&ll=${lat},${lng}&dirflg=d`;
+  } else if (Platform.OS === 'android') {
+    // Google Maps URL format for Android
+    url = `${scheme}0,0?q=${lat},${lng}(${encodeURIComponent(label)})`;
+  } else {
+    // Web fallback
+    url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  }
+
+  Linking.openURL(url).catch(err => {
+    console.error("Error opening navigation:", err);
+    
+    // Fallback to web Google Maps if native maps app fails
+    Linking.openURL(
+      `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+    ).catch(err => console.error("Error opening Google Maps fallback:", err));
+  });
+};
+
 export default function EmergencyFeedScreen() {
+  const navigation = useNavigation();
   const colorScheme = useColorScheme() ?? "light"
   const [view, setView] = useState<"list" | "map">(isTablet ? "list" : "list")
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null)
@@ -111,6 +146,15 @@ export default function EmergencyFeedScreen() {
   const [imageModalVisible, setImageModalVisible] = useState(false)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const mapRef = useRef<MapView>(null)
+
+  // Set custom header and back button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Emergency Feed",
+      headerBackTitle: "Back",
+      headerTitleAlign: "center",
+    });
+  }, [navigation]);
 
   // Get current user
   const auth = getAuth()
@@ -211,6 +255,22 @@ export default function EmergencyFeedScreen() {
     return currentUser && currentUser.uid === sos.userId
   }
 
+  // --- Check if current user has responded to the SOS ---
+  const isSOSResponder = (sos: SOSRequest) => {
+    return currentUser && currentUser.uid === sos.responderId
+  }
+
+  // --- Navigate to SOS location ---
+  const handleNavigate = (sos: SOSRequest) => {
+    if (!sos.latitude || !sos.longitude) {
+      Alert.alert("Navigation Error", "Location coordinates are not available for this emergency.");
+      return;
+    }
+    
+    const locationLabel = sos.address || `Emergency: ${sos.emergencyType}`;
+    openDirections(sos.latitude, sos.longitude, locationLabel);
+  };
+
   // --- Respond Action ---
   const handleRespond = async (sos: SOSRequest) => {
     if (!currentUser) {
@@ -270,7 +330,20 @@ export default function EmergencyFeedScreen() {
         read: false,
       })
 
-      Alert.alert("Response Sent", "You have successfully responded to this SOS request.")
+      Alert.alert(
+        "Response Sent", 
+        "You have successfully responded to this SOS request.",
+        [
+          {
+            text: "Navigate to Location",
+            onPress: () => handleNavigate(sos)
+          },
+          {
+            text: "Close",
+            style: "cancel"
+          }
+        ]
+      )
       setSelectedSOS(null)
     } catch (e: any) {
       Alert.alert("Error", "Failed to respond to SOS. " + (e?.message || ""))
@@ -455,23 +528,47 @@ export default function EmergencyFeedScreen() {
                     </TouchableOpacity>
                   </>
                 ) : (
-                  // Show Respond for others (if not already responded)
-                  (!item.responderId || item.status !== "responded") && (
+                  <>
+                    {/* Show Respond for others (if not already responded) */}
+                    {(!item.responderId || item.status !== "responded") && (
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: "#22c55e22" }]}
+                        onPress={() => handleRespond(item)}
+                      >
+                        <Ionicons name="checkmark" size={18} color="#22c55e" />
+                        <Text style={[styles.actionText, { color: "#22c55e" }]}>Accept & Respond</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {/* Always show Navigate button */}
                     <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: "#22c55e22" }]}
-                      onPress={() => handleRespond(item)}
+                      style={[styles.actionBtn, { backgroundColor: "#3b82f622" }]}
+                      onPress={() => handleNavigate(item)}
                     >
-                      <Ionicons name="checkmark" size={18} color="#22c55e" />
-                      <Text style={[styles.actionText, { color: "#22c55e" }]}>Accept & Respond</Text>
+                      <Ionicons name="navigate" size={18} color="#3b82f6" />
+                      <Text style={[styles.actionText, { color: "#3b82f6" }]}>Navigate</Text>
                     </TouchableOpacity>
-                  )
+                  </>
                 )}
               </View>
 
               {item.responderId && item.status === "responded" && (
-                <Text style={{ color: "#22c55e", fontWeight: "bold", marginTop: 6 }}>
-                  Responded by {item.responderName || "Employee"}
-                </Text>
+                <View style={styles.respondedContainer}>
+                  <Text style={{ color: "#22c55e", fontWeight: "bold" }}>
+                    Responded by {item.responderName || "Employee"}
+                  </Text>
+                  
+                  {/* Show special navigation button if current user is the responder */}
+                  {isSOSResponder(item) && (
+                    <TouchableOpacity
+                      style={styles.respondedNavigateBtn}
+                      onPress={() => handleNavigate(item)}
+                    >
+                      <Ionicons name="navigate" size={16} color="#fff" />
+                      <Text style={styles.respondedNavigateText}>Navigate</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -516,6 +613,18 @@ export default function EmergencyFeedScreen() {
                       </View>
                     )}
                   </View>
+                  <Callout tooltip onPress={() => handleNavigate(item)}>
+                    <View style={styles.calloutContainer}>
+                      <Text style={styles.calloutTitle}>{item.emergencyType}</Text>
+                      <Text style={styles.calloutDesc}>{item.description.substring(0, 50)}
+                        {item.description.length > 50 ? '...' : ''}
+                      </Text>
+                      <View style={styles.calloutButton}>
+                        <Ionicons name="navigate" size={14} color="#fff" />
+                        <Text style={styles.calloutButtonText}>Navigate</Text>
+                      </View>
+                    </View>
+                  </Callout>
                 </Marker>
               ))}
             </MapView>
@@ -595,23 +704,47 @@ export default function EmergencyFeedScreen() {
                       </TouchableOpacity>
                     </>
                   ) : (
-                    // Show Respond for others (if not already responded)
-                    (!selectedSOS.responderId || selectedSOS.status !== "responded") && (
+                    <>
+                      {/* Show Respond for others (if not already responded) */}
+                      {(!selectedSOS.responderId || selectedSOS.status !== "responded") && (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: "#22c55e22", marginTop: 18 }]}
+                          onPress={() => handleRespond(selectedSOS)}
+                        >
+                          <Ionicons name="checkmark" size={18} color="#22c55e" />
+                          <Text style={[styles.actionText, { color: "#22c55e" }]}>Accept & Respond</Text>
+                        </TouchableOpacity>
+                      )}
+                      
+                      {/* Always show Navigate button */}
                       <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: "#22c55e22", marginTop: 18 }]}
-                        onPress={() => handleRespond(selectedSOS)}
+                        style={[styles.actionBtn, { backgroundColor: "#3b82f622", marginTop: 18 }]}
+                        onPress={() => handleNavigate(selectedSOS)}
                       >
-                        <Ionicons name="checkmark" size={18} color="#22c55e" />
-                        <Text style={[styles.actionText, { color: "#22c55e" }]}>Accept & Respond</Text>
+                        <Ionicons name="navigate" size={18} color="#3b82f6" />
+                        <Text style={[styles.actionText, { color: "#3b82f6" }]}>Navigate</Text>
                       </TouchableOpacity>
-                    )
+                    </>
                   )}
                 </View>
 
                 {selectedSOS.responderId && selectedSOS.status === "responded" && (
-                  <Text style={{ color: "#22c55e", fontWeight: "bold", marginTop: 18 }}>
-                    Responded by {selectedSOS.responderName || "Employee"}
-                  </Text>
+                  <View style={[styles.respondedContainer, { marginTop: 18 }]}>
+                    <Text style={{ color: "#22c55e", fontWeight: "bold" }}>
+                      Responded by {selectedSOS.responderName || "Employee"}
+                    </Text>
+                    
+                    {/* Show special navigation button if current user is the responder */}
+                    {isSOSResponder(selectedSOS) && (
+                      <TouchableOpacity
+                        style={styles.respondedNavigateBtn}
+                        onPress={() => handleNavigate(selectedSOS)}
+                      >
+                        <Ionicons name="navigate" size={16} color="#fff" />
+                        <Text style={styles.respondedNavigateText}>Navigate</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 )}
               </>
             )}
@@ -813,6 +946,26 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 13,
   },
+  respondedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  respondedNavigateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2563eb",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  respondedNavigateText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 12,
+    marginLeft: 4,
+  },
   mapContainer: {
     flex: 1,
     margin: 12,
@@ -839,6 +992,43 @@ const styles = StyleSheet.create({
     padding: 2,
     borderWidth: 1,
     borderColor: "#fff",
+  },
+  calloutContainer: {
+    width: 200,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  calloutTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#2563eb',
+    marginBottom: 2,
+  },
+  calloutDesc: {
+    fontSize: 12,
+    color: '#555',
+    marginBottom: 6,
+  },
+  calloutButton: {
+    backgroundColor: '#2563eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  calloutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginLeft: 4,
   },
   modalOverlay: {
     flex: 1,

@@ -40,7 +40,6 @@ export default function ChatScreen() {
     fetchCity();
   }, [user]);
 
-  // Ensure chat document exists before accessing messages
   useEffect(() => {
     const ensureChatDoc = async () => {
       if (!city) return;

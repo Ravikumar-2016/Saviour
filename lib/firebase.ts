@@ -15,6 +15,8 @@ const firebaseConfig = {
   measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+{/* https://github.com/vikrantwiz02 */}
+
 const app = initializeApp(firebaseConfig);
 
 let auth: Auth;

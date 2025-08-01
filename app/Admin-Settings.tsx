@@ -29,6 +29,12 @@ export default function AdminSettingsScreen() {
     setEmergencyTypes(emergencyTypes.filter(t => t !== type));
   };
 
+
+
+  {/* https://github.com/vikrantwiz02 */}
+
+  
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors[colorScheme].background }}>
       <ScrollView contentContainerStyle={{ padding: 20 }}>

@@ -243,8 +243,6 @@ const NotificationsScreen = () => {
       }
     }
   }
-
-  const unreadCount = notifications.filter((n) => !n.read).length
   
   // Get notification color based on type
   const getNotificationColor = (type: string) => {
@@ -361,18 +359,6 @@ const NotificationsScreen = () => {
         </Animated.View>
       )}
       
-      <View style={styles.iconRow}>
-        <MaterialIcons
-          name="notifications"
-          size={32}
-          color={colors.primary}
-        />
-        {unreadCount > 0 && (
-          <View style={[styles.iconBadge, { backgroundColor: colors.error }]}>
-            <Text style={styles.iconBadgeText}>{unreadCount}</Text>
-          </View>
-        )}
-      </View>
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -409,29 +395,9 @@ const NotificationsScreen = () => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  iconRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
-    position: "relative",
-  },
-  iconBadge: {
-    position: "absolute",
-    left: 38,
-    top: 12,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#ef4444",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
-  },
-  iconBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
+  container: { 
+    flex: 1,
+    paddingTop: 10 
   },
   card: {
     marginVertical: 8,

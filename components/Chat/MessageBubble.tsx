@@ -17,6 +17,7 @@ type Props = {
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
 function renderTextWithLinks(text: string) {
+  if (!text) return null;
   const parts = text.split(urlRegex);
   return parts.map((part, idx) => {
     if (urlRegex.test(part)) {
@@ -43,8 +44,9 @@ export default function MessageBubble({ message, isOwn, onProfilePress }: Props)
   const colorScheme = useColorScheme() ?? "light";
   const [profileModal, setProfileModal] = useState(false);
 
-  const displayName = message.fullName || message.userName || message.email || "User";
-  const avatarUrl = message.photoUrl || message.userAvatar || null;
+  // Get user info from either format
+  const displayName = message.fullName || message.userName || (message.user?.name) || message.email || "User";
+  const avatarUrl = message.photoUrl || message.userAvatar || (message.user?.avatar) || null;
 
   // Avatar state for chat bubble and modal
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -61,6 +63,10 @@ export default function MessageBubble({ message, isOwn, onProfilePress }: Props)
     Clipboard.setStringAsync(message.text || "");
     Alert.alert("Copied", "Message copied to clipboard");
   };
+
+  // Handle media from either format
+  const mediaUrl = message.media || message.image;
+  const mediaType = message.mediaType || (message.image ? "image" : undefined);
 
   return (
     <Pressable
@@ -87,16 +93,10 @@ export default function MessageBubble({ message, isOwn, onProfilePress }: Props)
           {displayName}
         </Text>
       </View>
-      {message.media && (
+      {mediaUrl && (
         <MediaPreview
-          media={message.media}
-          mediaType={
-            message.mediaType === "image" ||
-            message.mediaType === "video" ||
-            message.mediaType === "audio"
-              ? message.mediaType
-              : undefined
-          }
+          media={mediaUrl}
+          mediaType={mediaType as "image" | "video" | "audio" | undefined}
         />
       )}
       {message.text ? (

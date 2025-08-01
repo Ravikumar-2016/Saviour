@@ -13,6 +13,12 @@ export default function SettingsScreen() {
         <Text style={styles.label}>Dark Mode</Text>
         <Switch value={darkMode} onValueChange={setDarkMode} />
       </View>
+
+
+
+  {/* https://github.com/vikrantwiz02 */}
+
+  
       <View style={styles.row}>
         <Text style={styles.label}>Notifications</Text>
         <Switch value={notifications} onValueChange={setNotifications} />

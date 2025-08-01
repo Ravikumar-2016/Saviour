@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import * as Location from "expo-location";
 import axios from "axios";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { useNavigation } from "expo-router";
 dayjs.extend(relativeTime);
 
 const { width } = Dimensions.get("window");
@@ -41,6 +42,7 @@ const getWeatherGradient = (weatherMain: string, colorScheme: string): [string, 
 };
 
 export default function WeatherForecastScreen() {
+  const navigation = useNavigation();
   const colorScheme = useColorScheme() ?? "light";
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [place, setPlace] = useState<string | null>(null);
@@ -48,6 +50,15 @@ export default function WeatherForecastScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Set custom header and back button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: "Weather Forecast",
+      headerBackTitle: "Back",
+      headerTitleAlign: "center",
+    });
+  }, [navigation]);
 
   // Fetch user's current location using expo-location
   const fetchCoords = useCallback(async () => {

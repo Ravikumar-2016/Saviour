@@ -13,6 +13,7 @@ import { AppUser } from "../../types/auth-context";
 import { useNavigation } from "expo-router";
 import { useLayoutEffect } from "react";
 
+// Common message format for both web and mobile
 export type ChatMessage = {
   id: string;
   text: string;
@@ -31,6 +32,14 @@ export type ChatMessage = {
   location?: { latitude: number; longitude: number };
   readBy?: string[];
   typing?: boolean;
+  // Add web compatibility fields
+  _id?: string;
+  user?: {
+    _id: string;
+    name: string;
+    avatar?: string;
+  };
+  image?: string;
 };
 
 type UserProfile = {
@@ -81,7 +90,8 @@ export default function ChatRoom({ roomId }: Props) {
           userPhone: data.contact || data.phoneNumber,
         });
         setUserCity(data.city);
-        setAccessAllowed(data.city === roomId);
+        // Allow access to chat regardless of city
+        setAccessAllowed(true);
       } else {
         setUserProfile({});
         setUserCity(null);
@@ -113,7 +123,35 @@ export default function ChatRoom({ roomId }: Props) {
     );
     const unsub = onSnapshot(q, (snap) => {
       const msgs: ChatMessage[] = [];
-      snap.forEach((doc) => msgs.push({ id: doc.id, ...doc.data() } as ChatMessage));
+      snap.forEach((doc) => {
+        const data = doc.data();
+        // Normalize message format
+        const normalizedMessage: ChatMessage = {
+          id: doc.id,
+          _id: doc.id, // Add web compatibility field
+          text: data.text || "",
+          createdAt: data.createdAt,
+          userId: data.userId || (data.user && data.user._id) || "",
+          userName: data.userName || (data.user && data.user.name) || "",
+          userAvatar: data.userAvatar || (data.user && data.user.avatar) || "",
+          user: {
+            _id: data.userId || (data.user && data.user._id) || "",
+            name: data.userName || (data.user && data.user.name) || "",
+            avatar: data.userAvatar || (data.user && data.user.avatar) || "",
+          },
+          email: data.email || "",
+          fullName: data.fullName || "",
+          photoUrl: data.photoUrl || "",
+          contact: data.contact || "",
+          city: data.city || "",
+          media: data.media || data.image || "",
+          image: data.media || data.image || "",
+          mediaType: data.mediaType || (data.image ? "image" : undefined),
+          location: data.location || undefined,
+          readBy: data.readBy || [],
+        };
+        msgs.push(normalizedMessage);
+      });
       setMessages(msgs);
       setLoading(false);
     }, (err) => {
@@ -153,8 +191,10 @@ export default function ChatRoom({ roomId }: Props) {
   const handleSend = async (msg: Omit<ChatMessage, "id" | "createdAt" | "readBy">) => {
     if (!user || !accessAllowed) return;
     try {
-      const messageData: Omit<ChatMessage, "id"> = {
-        text: msg.text,
+      // Create a message structure compatible with both platforms
+      const messageData = {
+        // Fields for mobile app
+        text: msg.text || "",
         userId: user.uid,
         userName: userProfile.fullName || user.displayName || user.email || "User",
         userAvatar: userProfile.photoUrl || user.photoURL,
@@ -166,10 +206,24 @@ export default function ChatRoom({ roomId }: Props) {
         city: userProfile.city,
         createdAt: serverTimestamp(),
         readBy: [user.uid],
-        ...(msg.media && { media: msg.media }),
+        
+        // Fields for web compatibility
+        _id: Date.now().toString(),
+        user: {
+          _id: user.uid,
+          name: userProfile.fullName || user.displayName || user.email || "User",
+          avatar: userProfile.photoUrl || user.photoURL,
+        },
+        
+        // Handle media
+        ...(msg.media && { 
+          media: msg.media,
+          image: msg.media // For web compatibility
+        }),
         ...(msg.mediaType && { mediaType: msg.mediaType }),
         ...(msg.location && { location: msg.location }),
       };
+      
       await addDoc(collection(db, "chats_users", roomId, "messages"), messageData);
       await updateDoc(doc(db, "chats_users", roomId), {
         typingUsers: [],
@@ -224,8 +278,8 @@ export default function ChatRoom({ roomId }: Props) {
       <View style={styles.headerWrapper}>
         <ChatHeader
           title={`City: ${roomId} Chat`}
-          avatar={messages[0]?.userAvatar || messages[0]?.photoUrl}
-          subtitle="Local Users"
+          avatar={messages[0]?.userAvatar || messages[0]?.photoUrl || (messages[0]?.user?.avatar)}
+          subtitle="Community Chat"
         />
       </View>
       <View style={styles.listContainer}>
@@ -250,9 +304,9 @@ export default function ChatRoom({ roomId }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors["dark"].background },
+  container: { flex: 1, backgroundColor: Colors["light"].background },
   headerWrapper: {
-    marginTop: Platform.OS === "ios" ? 0 : 0, // Remove extra space
+    marginTop: Platform.OS === "ios" ? 0 : 0,
     paddingTop: 0,
     backgroundColor: Colors["dark"].background,
   },

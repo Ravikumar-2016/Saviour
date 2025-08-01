@@ -53,14 +53,33 @@ export default function MediaPreview({ media, mediaType }: Props) {
     }
   }
 
-  if (mediaType === "image") {
+  // Handle different URI formats
+  const getMediaUri = (uri: string) => {
+    if (!uri) return "";
+    
+    // Handle data URIs
+    if (uri.startsWith('data:')) {
+      return uri;
+    }
+    
+    // Handle base64 strings that don't have a data URI prefix
+    if (uri.length > 100 && !uri.startsWith('http')) {
+      return `data:image/jpeg;base64,${uri}`;
+    }
+    
+    // Handle normal URLs
+    return uri;
+  };
+
+  if (mediaType === "image" || (!mediaType && media)) {
     return (
       <Image
-        source={{ uri: media.startsWith("data:") ? media : `data:image/jpeg;base64,${media}` }}
+        source={{ uri: getMediaUri(media) }}
         style={styles.image}
       />
     );
   }
+  
   if (mediaType === "video") {
     return (
       <Video
@@ -72,6 +91,7 @@ export default function MediaPreview({ media, mediaType }: Props) {
       />
     );
   }
+  
   if (mediaType === "audio") {
     return (
       <View style={styles.audio}>
@@ -84,6 +104,7 @@ export default function MediaPreview({ media, mediaType }: Props) {
       </View>
     );
   }
+  
   return (
     <View style={styles.unsupported}>
       <Text>Unsupported media</Text>

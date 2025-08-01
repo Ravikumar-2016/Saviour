@@ -20,7 +20,7 @@ import * as Location from "expo-location";
 import { useColorScheme } from "../../hooks/useColorScheme";
 import { Colors } from "../../constants/Colors";
 
-const MAX_MEDIA_SIZE = 950000;
+const MAX_MEDIA_SIZE = 95000000;
 
 type Props = {
   onSend: (msg: {
