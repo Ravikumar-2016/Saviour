@@ -171,15 +171,30 @@ export default function HomeScreen() {
       const sosRaisedSnap = await getDocs(sosRaisedQuery);
       setSosRaised(sosRaisedSnap.size);
 
-      // Help Provided: where acceptedBy == uid and status == "accepted" or "responded"
-      const helpProvidedQuery = query(
+      const helpProvidedQuery1 = query(
         collection(db, "sos_requests"),
-        where("acceptedBy", "==", uid),
-        where("status", "in", ["accepted", "responded"])
+        where("responderId", "==", uid)
       );
-      const helpProvidedSnap = await getDocs(helpProvidedQuery);
-      setHelpProvided(helpProvidedSnap.size);
+      const helpProvidedSnap1 = await getDocs(helpProvidedQuery1);
+      
+      // Also check acceptedBy == uid
+      const helpProvidedQuery2 = query(
+        collection(db, "sos_requests"),
+        where("acceptedBy", "==", uid)
+      );
+      const helpProvidedSnap2 = await getDocs(helpProvidedQuery2);
+      
+      // Combine both queries for total help provided count
+      // Use Set to avoid counting the same SOS request twice
+      const helpProvidedIds = new Set();
+      helpProvidedSnap1.forEach(doc => helpProvidedIds.add(doc.id));
+      helpProvidedSnap2.forEach(doc => helpProvidedIds.add(doc.id));
+      
+      setHelpProvided(helpProvidedIds.size);
+      
+      console.log(`Stats - SOS Raised: ${sosRaisedSnap.size}, Help Provided: ${helpProvidedIds.size}`);
     } catch (e) {
+      console.error("Error fetching SOS stats:", e);
       setSosRaised(0);
       setHelpProvided(0);
     }
