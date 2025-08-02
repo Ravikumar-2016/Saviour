@@ -227,6 +227,7 @@ export default function ProfileScreen() {
   const [name, setName] = useState("")
   const [contact, setContact] = useState("")
   const [medical, setMedical] = useState("")
+  const [city, setCity] = useState("")
   const [notifications, setNotifications] = useState(true)
   const [photo, setPhoto] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -281,6 +282,7 @@ export default function ProfileScreen() {
           setName(data.fullName || "")
           setContact(data.contact || "")
           setMedical(data.medical || "")
+          setCity(data.city || "")
           setNotifications(data.notifications ?? true)
           setPhoto(data.photoUrl || null)
           setBlockedUsers(data.blockedUsers || [])
@@ -290,6 +292,7 @@ export default function ProfileScreen() {
             fullName: "",
             contact: "",
             medical: "",
+            city: "",
             notifications: true,
             photoUrl: null,
             blockedUsers: [],
@@ -348,7 +351,14 @@ export default function ProfileScreen() {
           longitude: location.coords.longitude,
         })
 
-        if (geo && geo[0] && geo[0].city) setCurrentCity(geo[0].city)
+        if (geo && geo[0] && geo[0].city) {
+          setCurrentCity(geo[0].city)
+          
+          // Update city field if it's empty
+          if (!city) {
+            setCity(geo[0].city)
+          }
+        }
         else setCurrentCity(null)
       } catch {
         setCurrentCity(null)
@@ -402,6 +412,7 @@ export default function ProfileScreen() {
         fullName: name,
         contact,
         medical,
+        city,
         notifications,
         photoUrl: photo,
         blockedUsers,
@@ -738,7 +749,7 @@ export default function ProfileScreen() {
           <View style={s.cityContainer}>
             <Ionicons name="location" size={18} color={Colors[theme].tint} style={{ marginRight: 6 }} />
             <ThemedText style={s.cityText}>
-              {cityLoading ? "Detecting your current city..." : currentCity ? currentCity : "Location not available"}
+              {cityLoading ? "Detecting your current city..." : currentCity ? `Current location: ${currentCity}` : "Location not available"}
             </ThemedText>
           </View>
 
@@ -793,6 +804,26 @@ export default function ProfileScreen() {
                 keyboardType="phone-pad"
                 placeholderTextColor={Colors[theme].textMuted}
               />
+            </View>
+
+            <View style={s.inputGroup}>
+              <ThemedText style={s.label}>City</ThemedText>
+              <TextInput
+                style={s.input}
+                value={city}
+                onChangeText={setCity}
+                placeholder="Your city"
+                placeholderTextColor={Colors[theme].textMuted}
+              />
+              {currentCity && city !== currentCity && (
+                <TouchableOpacity 
+                  style={s.cityUpdateButton}
+                  onPress={() => setCity(currentCity)}
+                >
+                  <Ionicons name="locate" size={14} color={Colors[theme].background} style={{ marginRight: 4 }} />
+                  <ThemedText style={s.cityUpdateButtonText}>Use current city</ThemedText>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={s.inputGroup}>
@@ -1140,6 +1171,22 @@ const styles = (theme: "light" | "dark") =>
     historyItemLocationText: {
       fontSize: 13,
       color: Colors[theme].textMuted,
+    },
+    cityUpdateButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      backgroundColor: Colors[theme].tint,
+      alignSelf: "flex-start",
+    },
+    cityUpdateButtonText: {
+      color: Colors[theme].background,
+      fontSize: 12,
+      fontWeight: "600",
     },
     logoutButton: {
       flexDirection: "row",

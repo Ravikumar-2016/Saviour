@@ -21,6 +21,7 @@ import { useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import * as ImagePicker from "expo-image-picker"
 import * as FileSystem from "expo-file-system"
+import * as Location from "expo-location"
 import {
   getAuth,
   signOut,
@@ -149,6 +150,10 @@ export default function AdminProfileScreen() {
   // Auth state
   const [user, setUser] = useState<User | null>(auth.currentUser)
 
+  // Current city state
+  const [currentCity, setCurrentCity] = useState<string | null>(null)
+  const [cityLoading, setCityLoading] = useState(true)
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser)
@@ -165,6 +170,7 @@ export default function AdminProfileScreen() {
   const [name, setName] = useState("")
   const [contact, setContact] = useState("")
   const [email, setEmail] = useState("")
+  const [city, setCity] = useState("")
   const [photo, setPhoto] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -185,6 +191,7 @@ export default function AdminProfileScreen() {
           setName(data.displayName || data.name || "")
           setContact(data.contact || "")
           setEmail(data.email || user.email || "")
+          setCity(data.city || "")
 
           // Handle different photo storage methods
           if (data.photoDataUrl) {
@@ -208,6 +215,46 @@ export default function AdminProfileScreen() {
     fetchProfile()
   }, [user])
 
+  // Fetch current city
+  useEffect(() => {
+    const fetchCurrentCity = async () => {
+      setCityLoading(true)
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status !== "granted") {
+          setCurrentCity(null)
+          setCityLoading(false)
+          return
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        })
+
+        const geo = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        })
+
+        if (geo && geo[0] && geo[0].city) {
+          setCurrentCity(geo[0].city)
+          
+          // Update city field if it's empty
+          if (!city) {
+            setCity(geo[0].city)
+          }
+        }
+        else setCurrentCity(null)
+      } catch (error) {
+        console.error("Error getting location:", error)
+        setCurrentCity(null)
+      }
+      setCityLoading(false)
+    }
+
+    fetchCurrentCity()
+  }, [])
+
   // Save profile changes
   const saveProfile = async () => {
     if (!user) return
@@ -216,6 +263,7 @@ export default function AdminProfileScreen() {
       await updateDoc(doc(db, "admins", user.uid), {
         displayName: name,
         contact,
+        city,
         photoUrl: photo,
         updatedAt: new Date().toISOString(),
       })
@@ -425,6 +473,14 @@ export default function AdminProfileScreen() {
         <ThemedView style={s.container}>
           <ThemedText style={s.headerTitle}>Admin Profile</ThemedText>
 
+          {/* Current City */}
+          <View style={s.cityContainer}>
+            <Ionicons name="location" size={18} color={Colors[theme].tint} style={{ marginRight: 6 }} />
+            <ThemedText style={s.cityText}>
+              {cityLoading ? "Detecting your current location..." : currentCity ? `Current location: ${currentCity}` : "Location not available"}
+            </ThemedText>
+          </View>
+
           {/* Profile Photo with Upload Progress */}
           <Animated.View style={{ transform: [{ scale: profileImageScale }] }}>
             <TouchableOpacity
@@ -489,6 +545,16 @@ export default function AdminProfileScreen() {
                 onChangeText={setContact}
                 placeholder="Phone number"
                 keyboardType="phone-pad"
+                placeholderTextColor={Colors[theme].textMuted}
+              />
+            </View>
+            <View style={s.inputGroup}>
+              <ThemedText style={s.label}>City</ThemedText>
+              <TextInput
+                style={s.input}
+                value={city}
+                onChangeText={setCity}
+                placeholder="Your city"
                 placeholderTextColor={Colors[theme].textMuted}
               />
             </View>
@@ -688,5 +754,20 @@ const styles = (theme: "light" | "dark") =>
       color: "#EF5350",
       fontWeight: "600",
       fontSize: 16,
+    },
+    cityContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 12,
+      borderRadius: 20,
+      backgroundColor: theme === "dark" ? Colors.dark.card : Colors.light.inputBackground,
+      marginBottom: 24,
+      alignSelf: "center",
+    },
+    cityText: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: Colors[theme].tint,
     },
   })
