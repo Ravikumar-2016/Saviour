@@ -207,10 +207,12 @@ npm start
 5. **Run on specific platform:**
 ```bash
 # For iOS
-npm run ios
+npx expo start
+press i or scan the QR from Expo Go app
 
 # For Android
-npm run android
+npx expo start
+press a or scan the QR from Expo Go app
 ```
 
 ## ⚡ Performance Optimizations
