@@ -203,7 +203,7 @@ npm install
 
 4. **Start the development server:**
 ```bash
-npm start
+npx expo start
 ```
 
 5. **Run on specific platform:**
